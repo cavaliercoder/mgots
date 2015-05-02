@@ -1,4 +1,4 @@
-# mgots - Mango TS
+# mgots - Mango TS [![Build Status](https://travis-ci.org/cavaliercoder/mgots.svg)](https://travis-ci.org/cavaliercoder/mgots)
 
 *A Time Series data model API for Go and MongoDB*
 
