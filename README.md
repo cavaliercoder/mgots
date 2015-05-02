@@ -27,6 +27,9 @@ time, with a _slot_ preallocated for each expected data point. For example, if
 the data interval is one minute and the page size is one hour, each page will
 contain 60 preallocated slots; one for each minute of the hour.
 
+The model implemented in mgots is loosely based on [Sandeep Parikh's](http://blog.mongodb.org/post/65517193370/schema-design-for-time-series-data-in-mongodb)
+time series schema design.
+
 ### Nonperiodic data
 
 Nonperiodic data appears in cronological order, but at irregular intervals.
