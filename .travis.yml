@@ -3,3 +3,5 @@ language: go
 # Build deps
 install: 
   - sudo apt-get -y install mongodb-org-server
+  - go get gopkg.in/mgo.v2
+  - go get gopkg.in/mgo.v2/bson
