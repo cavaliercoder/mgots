@@ -201,6 +201,51 @@ func TestNPPaging(t *testing.T) {
 	}
 }
 
+func TestNPLatest(t *testing.T) {
+	database := DBConnect()
+	name := "test_np_latest"
+
+	// Create a nonperiodic collection
+	collection, err := NewNonperiodicCollection(database, name, testPageSize)
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+
+	// Create a new series in the collection
+	seriesId := bson.NewObjectId()
+	startTime := time.Now().AddDate(-1, 0, 0)
+	err = collection.CreateSeries(seriesId, startTime)
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+
+	// Add sequencial data to the series and validate the current value
+	entryCount := 1000
+	for i := 0; i < entryCount; i++ {
+		// next data point
+		// truncate the timestamp to milliseconds to account for loss of
+		// precision in MongoDB
+		timestamp := startTime.Add(time.Duration(i*60) * time.Minute).Truncate(time.Millisecond)
+		value := testData{i, "A little bit of padding."}
+
+		// append to time series
+		err := collection.Append(seriesId, timestamp, value)
+		if err != nil {
+			t.Errorf(err.Error())
+		}
+
+		// validate latest value function
+		latest, err := collection.Latest(seriesId)
+		if err != nil {
+			t.Errorf(err.Error())
+		} else {
+			if !latest.Timestamp.Equal(timestamp) {
+				t.Errorf("Latest timestamp (%s) does not match the most recently appended timestamp (%s)", latest.Timestamp.Format(layout), timestamp.Format(layout))
+			}
+		}
+	}
+}
+
 func TestNPRanging(t *testing.T) {
 	database := DBConnect()
 	name := "test_np_ranging"

@@ -5,12 +5,13 @@ import (
 	"gopkg.in/mgo.v2"
 	"os"
 	"testing"
+	"time"
 )
 
 const url = "mongodb://localhost/mgots"
 const testDb = "mgots"
 const testPageSize int64 = 4096
-const layout = "Jan 2, 2006 at 3:04pm (MST)"
+const layout = time.RFC3339Nano // "Jan 2, 2006 at 3:04pm (MST)"
 
 func TestMain(m *testing.M) {
 	// Connect to MongoDB

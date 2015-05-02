@@ -16,6 +16,7 @@ type NonperiodicCollection struct {
 }
 
 // Errors
+var ErrSeriesNotFound = errors.New("Series not found with the specified collection")
 var ErrInvalidPageSize = errors.New("Pages size must be a positive integer")
 var ErrDuplicateSeries = errors.New("Time series already exists with the specified ID")
 var ErrValueTooLarge = errors.New("The size value specified exceeds the maximum Time Series page size.")
@@ -66,6 +67,24 @@ func (c *NonperiodicCollection) CreateSeries(seriesId interface{}, startTime tim
 	}
 
 	return nil
+}
+
+func (c *NonperiodicCollection) Latest(seriesId interface{}) (*DataPoint, error) {
+	// Fetch last value from the series cursor
+	var cursor seriesCursor
+	err := c.DBCursorCollection.FindId(seriesId).One(&cursor)
+	if err != nil {
+		if err == mgo.ErrNotFound {
+			return nil, ErrSeriesNotFound
+		}
+
+		return nil, err
+	}
+
+	return &DataPoint{
+		Timestamp: cursor.LastValueTime,
+		Value:     cursor.LastValue,
+	}, nil
 }
 
 func (c *NonperiodicCollection) Range(seriesId interface{}, minTime time.Time, maxTime time.Time) (DataPoints, error) {
