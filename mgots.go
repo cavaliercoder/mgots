@@ -24,8 +24,8 @@ type seriesCursor struct {
 	SeriesId      interface{} `bson:"_id"` // ID of the series described by this cursor
 	LastPage      interface{} // StartTime (ID) of the page pointed to by this cursor
 	NextSlotId    int         // Index of the next available slot in the page pointed to by this cursor
-	LastValue     bson.Raw    `bson:",omitempty"` // Value of the last entry in the series described by this cursor
 	LastValueTime time.Time   `bson:",omitempty"` // Timestamp of the last entry in the series described by this cursor
+	LastValue     bson.Raw    `bson:",omitempty"` // Value of the last entry in the series described by this cursor
 }
 
 var cursorSuffix = "_cursors"

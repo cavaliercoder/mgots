@@ -22,7 +22,6 @@ var ErrTooOld = errors.New("The timestamp of the specified value is older than t
 
 func NewNonperiodicCollection(database *mgo.Database, name string, pageSize int) (Collection, error) {
 	// Validate page size
-	// TODO: Determine minimum page size (including header and timestamps array)
 	if pageSize < 256 {
 		return nil, ErrInvalidPageSize
 	}
@@ -40,6 +39,8 @@ func NewNonperiodicCollection(database *mgo.Database, name string, pageSize int)
 	// Attach to MongoDB collections
 	collection.DBCollection = database.C(name)
 	collection.DBCursorCollection = database.C(collection.CursorCollectionName)
+
+	// TODO: Create indexes
 
 	return &collection, nil
 }
@@ -78,6 +79,10 @@ func (c *NonperiodicCollection) Latest(seriesId interface{}) (DataPoint, error) 
 		}
 
 		return nil, newError(err, "Error searching for time series")
+	}
+
+	if cursor.LastValueTime.Equal(timeZero) {
+		return nil, nil
 	}
 
 	return &dataPoint{
@@ -198,8 +203,7 @@ func (c *NonperiodicCollection) Append(seriesId interface{}, timestamp time.Time
 			EndTime:   timestamp,
 		}
 
-		// Create empty values for new page
-		// TODO: Compute slots/page using BSON size instead of Go value sizes
+		// Calculate maximum slots per page
 		bsonSize := BSONSize(value) + TIMESTAMP_SIZE
 		slots := int((c.PageSize - PAGE_HEADER_SIZE) / bsonSize)
 		if slots < 1 {
@@ -210,7 +214,7 @@ func (c *NonperiodicCollection) Append(seriesId interface{}, timestamp time.Time
 		newPage.Timestamps = make([]time.Time, slots)
 		newPage.Values = []bson.Raw{bsonZero}
 
-		paddingSize := c.PageSize - PAGE_HEADER_SIZE - (slots * TIMESTAMP_SIZE)
+		paddingSize := c.PageSize - PAGE_HEADER_SIZE - (slots * TIMESTAMP_SIZE) - 16
 		if paddingSize > 0 {
 			newPage.Padding = make([]byte, paddingSize)
 		}
