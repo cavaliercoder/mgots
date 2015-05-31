@@ -247,6 +247,16 @@ func TestNPLatest(t *testing.T) {
 			if !latest.Timestamp().Equal(timestamp) {
 				t.Errorf("Latest timestamp (%s) does not match the most recently appended timestamp (%s)", latest.Timestamp().Format(layout), timestamp.Format(layout))
 			}
+
+			var rData testData
+			err = latest.GetValue(&rData)
+			if err != nil {
+				t.Errorf("Error unmarshalling range data: %s", err.Error())
+			} else {
+				if rData.Sequence != i {
+					t.Errorf("Latest value sequence %d does not match actual sequence %d", rData.Sequence, i)
+				}
+			}
 		}
 	}
 }
