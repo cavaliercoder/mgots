@@ -93,22 +93,27 @@ func TestNPAppending(t *testing.T) {
 	}
 
 	// Ensure data is in order
-	var lastEntry *DataPoint = nil
+	var lastEntry DataPoint = nil
 	for i := 0; i < dataLen; i++ {
 		entry := data[i]
 
 		// Validate sequence id
-		sequence := entry.Value.(bson.M)
-		if i != sequence["sequence"] {
-			t.Errorf("Expected data sequence %d. Got %d.", i, sequence["sequence"])
+		var rData testData
+		err = entry.GetValue(&rData)
+		if err != nil {
+			t.Errorf("Error getting range data for %d: %s", i, err.Error())
+		} else {
+			if i != rData.Sequence {
+				t.Errorf("Expected data sequence %d. Got %d.", i, rData.Sequence)
+			}
 		}
 
 		// validate date order
-		if lastEntry != nil && lastEntry.Timestamp.After(entry.Timestamp) {
+		if lastEntry != nil && lastEntry.Timestamp().After(entry.Timestamp()) {
 			t.Errorf("Sequence %d is more recent than sequence %d.", i-1, i)
 		}
 
-		lastEntry = &entry
+		lastEntry = entry
 	}
 }
 
@@ -239,8 +244,8 @@ func TestNPLatest(t *testing.T) {
 		if err != nil {
 			t.Errorf(err.Error())
 		} else {
-			if !latest.Timestamp.Equal(timestamp) {
-				t.Errorf("Latest timestamp (%s) does not match the most recently appended timestamp (%s)", latest.Timestamp.Format(layout), timestamp.Format(layout))
+			if !latest.Timestamp().Equal(timestamp) {
+				t.Errorf("Latest timestamp (%s) does not match the most recently appended timestamp (%s)", latest.Timestamp().Format(layout), timestamp.Format(layout))
 			}
 		}
 	}
@@ -299,12 +304,12 @@ func TestNPRanging(t *testing.T) {
 
 		// Validate range entry dates
 		for x, entry := range data {
-			if entry.Timestamp.Before(queryRange.MinTime) {
-				t.Errorf("Result %d (%s) is earlier than the range minimum (%s)", x, entry.Timestamp.Format(layout), queryRange.MinTime.Format(layout))
+			if entry.Timestamp().Before(queryRange.MinTime) {
+				t.Errorf("Result %d (%s) is earlier than the range minimum (%s)", x, entry.Timestamp().Format(layout), queryRange.MinTime.Format(layout))
 			}
 
-			if entry.Timestamp.After(queryRange.MaxTime) {
-				t.Errorf("Result %d (%s) is later than the range maximum (%s)", x, entry.Timestamp.Format(layout), queryRange.MaxTime.Format(layout))
+			if entry.Timestamp().After(queryRange.MaxTime) {
+				t.Errorf("Result %d (%s) is later than the range maximum (%s)", x, entry.Timestamp().Format(layout), queryRange.MaxTime.Format(layout))
 			}
 		}
 	}

@@ -9,19 +9,20 @@ import (
 )
 
 const url = "mongodb://localhost/mgots"
-const testDb = "mgots"
+const testDb = "mgots_test"
 const testPageSize int64 = 4096
 const layout = time.RFC3339Nano // "Jan 2, 2006 at 3:04pm (MST)"
 
 func TestMain(m *testing.M) {
-	// Connect to MongoDB
+	// Connect to MongoDB and cleanup previous data
+	database := DBConnect()
+	database.DropDatabase()
 
 	// Run the tests
 	res := m.Run()
 
 	// Cleanup
-	database := DBConnect()
-	database.DropDatabase()
+	//database.DropDatabase()
 
 	// return
 	os.Exit(res)
