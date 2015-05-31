@@ -59,4 +59,6 @@ SCRIPT
 Vagrant.configure(2) do |config|
   config.vm.box = "hashicorp/precise64"
   config.vm.provision "shell", inline: $script
+
+  config.vm.network "forwarded_port", guest: 6060, host: 6060 # go doc
 end

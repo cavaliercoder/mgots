@@ -4,28 +4,26 @@ import (
 	"errors"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
-	//"reflect"
 	"strconv"
 	"time"
-	"unsafe"
 )
 
 type NonperiodicCollection struct {
 	collection
-	PageSize int64
+	PageSize int
 }
 
 // Errors
 var ErrSeriesNotFound = errors.New("Series not found with the specified collection")
-var ErrInvalidPageSize = errors.New("Pages size must be a positive integer")
+var ErrInvalidPageSize = errors.New("Pages size must be greater than 256 bytes")
 var ErrDuplicateSeries = errors.New("Time series already exists with the specified ID")
 var ErrValueTooLarge = errors.New("The size value specified exceeds the maximum Time Series page size.")
 var ErrTooOld = errors.New("The timestamp of the specified value is older than the most recent entry or the series does not exist.")
 
-func NewNonperiodicCollection(database *mgo.Database, name string, pageSize int64) (Collection, error) {
+func NewNonperiodicCollection(database *mgo.Database, name string, pageSize int) (Collection, error) {
 	// Validate page size
 	// TODO: Determine minimum page size (including header and timestamps array)
-	if pageSize < 1 {
+	if pageSize < 256 {
 		return nil, ErrInvalidPageSize
 	}
 
@@ -51,7 +49,7 @@ func (c *NonperiodicCollection) CreateSeries(seriesId interface{}, startTime tim
 	// Does the series exist?
 	count, err := c.DBCursorCollection.FindId(seriesId).Count()
 	if err != nil {
-		return err
+		return newError(err, "Error checking for existing series")
 	}
 
 	if count != 0 {
@@ -64,7 +62,7 @@ func (c *NonperiodicCollection) CreateSeries(seriesId interface{}, startTime tim
 		LastValueTime: timeZero,
 	})
 	if err != nil {
-		return err
+		return newError(err, "Error creating new series")
 	}
 
 	return nil
@@ -79,7 +77,7 @@ func (c *NonperiodicCollection) Latest(seriesId interface{}) (DataPoint, error) 
 			return nil, ErrSeriesNotFound
 		}
 
-		return nil, err
+		return nil, newError(err, "Error searching for time series")
 	}
 
 	return &dataPoint{
@@ -98,7 +96,7 @@ func (c *NonperiodicCollection) Range(seriesId interface{}, minTime time.Time, m
 	}).Sort("starttime").All(&pages)
 
 	if err != nil {
-		return nil, err
+		return nil, newError(err, "Error searching for time series pages")
 	}
 
 	// create capacity for result set
@@ -164,7 +162,7 @@ func (c *NonperiodicCollection) Append(seriesId interface{}, timestamp time.Time
 		if err == mgo.ErrNotFound {
 			return ErrTooOld
 		}
-		return NewError(err, "Error updating series cursor")
+		return newError(err, "Error updating series cursor")
 	}
 
 	// Create a new page if the NextSlotId is < 0
@@ -185,7 +183,7 @@ func (c *NonperiodicCollection) Append(seriesId interface{}, timestamp time.Time
 
 		if err != nil {
 			if err != mgo.ErrNotFound {
-				return NewError(err, "Error updating most recent series page")
+				return newError(err, "Error updating most recent series page")
 			}
 
 			// No previous page
@@ -201,8 +199,9 @@ func (c *NonperiodicCollection) Append(seriesId interface{}, timestamp time.Time
 		}
 
 		// Create empty values for new page
-		// TODO: Compute slots/page using BSON instead of Go values
-		slots := int(c.PageSize / int64(unsafe.Sizeof(value)))
+		// TODO: Compute slots/page using BSON size instead of Go value sizes
+		bsonSize := BSONSize(value) + TIMESTAMP_SIZE
+		slots := int((c.PageSize - PAGE_HEADER_SIZE) / bsonSize)
 		if slots < 1 {
 			return ErrValueTooLarge
 		}
@@ -210,17 +209,16 @@ func (c *NonperiodicCollection) Append(seriesId interface{}, timestamp time.Time
 		// Preallocate null data into page slots
 		newPage.Timestamps = make([]time.Time, slots)
 		newPage.Values = []bson.Raw{bsonZero}
-		//newPage.Values = make([]bson.Raw, slots)
 
-		//valType := reflect.SliceOf(reflect.TypeOf(value))
-		//preAlloc := reflect.MakeSlice(valType, slots, slots)
-		//newPage.Values = preAlloc.Interface()
-		// TODO: Insert padding
+		paddingSize := c.PageSize - PAGE_HEADER_SIZE - (slots * TIMESTAMP_SIZE)
+		if paddingSize > 0 {
+			newPage.Padding = make([]byte, paddingSize)
+		}
 
 		// Insert new page
 		err = c.DBCollection.Insert(newPage)
 		if err != nil {
-			return NewError(err, "Error inserting new page")
+			return newError(err, "Error inserting new page")
 		}
 
 		// Update cursor in database
@@ -231,7 +229,7 @@ func (c *NonperiodicCollection) Append(seriesId interface{}, timestamp time.Time
 			},
 		})
 		if err != nil {
-			return NewError(err, "Error updating series cursor with latest page")
+			return newError(err, "Error updating series cursor with latest page")
 		}
 
 		// update cursor for next operation
@@ -247,10 +245,13 @@ func (c *NonperiodicCollection) Append(seriesId interface{}, timestamp time.Time
 			"timestamps." + slotIdString: timestamp,
 			"values." + slotIdString:     value,
 		},
+		"$unset": bson.M{
+			"padding": "",
+		},
 	})
 
 	if err != nil {
-		return NewError(err, "Error updating page with most recent data")
+		return newError(err, "Error updating page with most recent data")
 	}
 
 	return nil

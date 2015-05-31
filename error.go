@@ -4,19 +4,19 @@ import (
 	"fmt"
 )
 
-type Error struct {
+type mgotsError struct {
 	InnerError error
 	Message    string
 }
 
-func NewError(err error, format string, a ...interface{}) *Error {
-	return &Error{
+func newError(err error, format string, a ...interface{}) error {
+	return &mgotsError{
 		InnerError: err,
 		Message:    fmt.Sprintf(format, a...),
 	}
 }
 
-func (c *Error) Error() string {
+func (c *mgotsError) Error() string {
 	if c.InnerError == nil {
 		return c.Message
 	}
