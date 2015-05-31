@@ -19,6 +19,7 @@ var ErrInvalidPageSize = errors.New("Pages size must be greater than 256 bytes")
 var ErrDuplicateSeries = errors.New("Time series already exists with the specified ID")
 var ErrValueTooLarge = errors.New("The size value specified exceeds the maximum Time Series page size.")
 var ErrTooOld = errors.New("The timestamp of the specified value is older than the most recent entry or the series does not exist.")
+var ErrNoData = errors.New("No existing data to update")
 
 func NewNonperiodicCollection(database *mgo.Database, name string, pageSize int) (Collection, error) {
 	// Validate page size
@@ -256,6 +257,57 @@ func (c *NonperiodicCollection) Append(seriesId interface{}, timestamp time.Time
 
 	if err != nil {
 		return newError(err, "Error updating page with most recent data")
+	}
+
+	return nil
+}
+
+func (c *NonperiodicCollection) Update(seriesId interface{}, value interface{}) error {
+	// Search for the series cursor
+	var cursor seriesCursor
+	err := c.DBCursorCollection.Find(bson.M{
+		"_id": seriesId,
+	}).One(&cursor)
+
+	if err != nil {
+		if err == mgo.ErrNotFound {
+			return ErrSeriesNotFound
+		}
+		return newError(err, "Error searching for series cursor")
+	}
+
+	// Fail if no value exists
+	if cursor.LastValueTime.Equal(timeZero) {
+		return ErrNoData
+	}
+
+	// Update cursor
+	change := mgo.Change{
+		Update: bson.M{
+			"$set": bson.M{
+				"lastvalue": value,
+			},
+		},
+		ReturnNew: true,
+	}
+	err = c.DBCursorCollection.UpdateId(cursor.SeriesId, change)
+	if err != nil {
+		return newError(err, "Error updating value on series cursor")
+	}
+
+	// update last page
+	slot := strconv.FormatInt(int64(cursor.NextSlotId+1), 10)
+	change = mgo.Change{
+		Update: bson.M{
+			"$set": bson.M{
+				"values." + slot: value,
+			},
+		},
+		ReturnNew: true,
+	}
+	err = c.DBCollection.UpdateId(cursor.LastPage, change)
+	if err != nil {
+		return newError(err, "Error updating most recent page")
 	}
 
 	return nil
