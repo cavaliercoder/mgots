@@ -258,6 +258,27 @@ func TestNPLatest(t *testing.T) {
 				}
 			}
 		}
+
+		// validate update function
+		value.Padding = "Updated value"
+		err = collection.Update(seriesId, value)
+		if err != nil {
+			t.Errorf("Error updating most recent value: %s", err.Error())
+		}
+
+		var uValue testData
+		latest, err = collection.Latest(seriesId)
+		if err != nil {
+			t.Errorf("Error getting updated value: %s", err.Error())
+		} else {
+			if err = latest.GetValue(&uValue); err != nil {
+				t.Errorf("Error reading updated value: %s", err.Error())
+			} else {
+				if uValue.Padding != value.Padding {
+					t.Errorf("Value does not appear to have been updated by Update()")
+				}
+			}
+		}
 	}
 }
 

@@ -282,13 +282,10 @@ func (c *NonperiodicCollection) Update(seriesId interface{}, value interface{}) 
 	}
 
 	// Update cursor
-	change := mgo.Change{
-		Update: bson.M{
-			"$set": bson.M{
-				"lastvalue": value,
-			},
+	change := bson.M{
+		"$set": bson.M{
+			"lastvalue": value,
 		},
-		ReturnNew: true,
 	}
 	err = c.DBCursorCollection.UpdateId(cursor.SeriesId, change)
 	if err != nil {
@@ -297,13 +294,10 @@ func (c *NonperiodicCollection) Update(seriesId interface{}, value interface{}) 
 
 	// update last page
 	slot := strconv.FormatInt(int64(cursor.NextSlotId+1), 10)
-	change = mgo.Change{
-		Update: bson.M{
-			"$set": bson.M{
-				"values." + slot: value,
-			},
+	change = bson.M{
+		"$set": bson.M{
+			"values." + slot: value,
 		},
-		ReturnNew: true,
 	}
 	err = c.DBCollection.UpdateId(cursor.LastPage, change)
 	if err != nil {
